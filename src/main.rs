@@ -100,6 +100,7 @@ fn main() -> Result<()> {
         "\nModel predictions completed in {:.2} seconds.",
         model_predict_start_time.elapsed().as_secs_f64()
     );
+    println!("");
 
     Ok(())
 }
