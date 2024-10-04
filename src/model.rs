@@ -115,20 +115,6 @@ impl ConvNet {
             let test_logits = self.forward(&test_images, false)?;
             let test_prediction = test_logits.argmax(D::Minus1)?;
 
-            let test_prediction_vec = test_prediction.to_vec1::<u32>()?;
-            let test_labels_vec = test_labels.to_vec1::<u32>()?;
-
-            for (i, (prediction, label)) in test_prediction_vec
-                .iter()
-                .zip(test_labels_vec.iter())
-                .enumerate()
-            {
-                println!("Prediction: {} - Label: {}", prediction, label);
-                if i == 10 {
-                    break;
-                }
-            }
-
             let sum_ok = test_prediction
                 .eq(&test_labels)?
                 .to_dtype(DType::F32)?
@@ -157,46 +143,23 @@ impl ConvNet {
         data: &candle_datasets::vision::Dataset,
         batch_size: usize,
     ) -> candle_core::Result<()> {
+        let test_start_time = std::time::Instant::now();
+
         let test_images = data.test_images.to_device(device)?;
         let test_labels = data.test_labels.to_device(device)?;
         let n_batches = test_images.dim(0)? / batch_size;
         let mut correct_predictions = 0;
         let mut total_predictions = 0;
 
-        println!("Testing {} batches", n_batches);
-
         for i in 0..n_batches {
-            println!("Batch {}/{}", i + 1, n_batches);
-
             let images = test_images.narrow(0, i * batch_size, batch_size)?;
             let labels = test_labels.narrow(0, i * batch_size, batch_size)?;
 
             let labels = labels.to_dtype(DType::U32)?;
 
             let logits = self.forward(&images, false)?;
-            let log_sm = ops::log_softmax(&logits, D::Minus1)?;
-            let loss = loss::nll(&log_sm, &labels)?;
-            println!("Test Loss: {}", loss);
 
             let predictions = logits.argmax(D::Minus1)?;
-
-            println!("Predictions: {:?}", predictions);
-            println!("Labels: {:?}", labels);
-
-            println!("Predictions shape: {:?}", predictions.shape());
-            println!("Labels shape: {:?}", labels.shape());
-
-            // Print detailed information for each prediction
-            let predictions_vec: Vec<u32> = predictions.to_vec1::<u32>()?;
-            let labels_vec: Vec<u32> = labels.to_vec1::<u32>()?;
-            for (i, (prediction, label)) in
-                predictions_vec.iter().zip(labels_vec.iter()).enumerate()
-            {
-                println!("Prediction: {} - Label: {}", prediction, label);
-                if i == 10 {
-                    break;
-                }
-            }
 
             correct_predictions += predictions
                 .eq(&labels)?
@@ -208,7 +171,12 @@ impl ConvNet {
         }
 
         let accuracy = correct_predictions as f32 / total_predictions as f32 * 100.0;
-        println!("Test Accuracy: {:.2}%", accuracy);
+
+        println!(
+            "Test Accuracy: {:.2}% - took {:.2} seconds",
+            accuracy,
+            test_start_time.elapsed().as_secs_f64()
+        );
 
         Ok(())
     }
