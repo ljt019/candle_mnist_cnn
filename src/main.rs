@@ -7,24 +7,28 @@ use candle_core::DType;
 use candle_nn::{VarBuilder, VarMap};
 
 fn main() -> candle_core::Result<()> {
-    let dev = candle_core::Device::cuda_if_available(0).unwrap();
+    let dev = candle_core::Device::cuda_if_available(0).expect("Failed to get any device");
 
-    let var_map = VarMap::new();
+    let mut var_map = VarMap::new();
 
     let var_builder = VarBuilder::from_varmap(&var_map, DType::F32, &dev);
 
-    let model = ConvNet::new(var_builder).unwrap();
+    let model = ConvNet::new(var_builder).expect("Failed to create model");
 
     let training_args = model::TrainingArgs {
-        epochs: 15,
-        learning_rate: 0.0005,
+        epochs: 5,
+        learning_rate: 0.002,
         load: None,
-        save: None,
+        save: Some("model.safetensors".to_string()),
     };
 
     println!("Training model...");
     let model_train_start_time = std::time::Instant::now();
-    model.train(&utils::get_mnist_dataset().unwrap(), &training_args)?;
+    model.train(
+        &utils::get_mnist_dataset().unwrap(),
+        &training_args,
+        &mut var_map,
+    )?;
     println!(
         "Model training took: {} seconds",
         model_train_start_time.elapsed().as_secs()
