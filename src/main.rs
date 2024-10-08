@@ -3,8 +3,8 @@
 // colored = "2.0"
 
 use crate::model::ConvNet;
-use candle_core::{DType, Device, Result};
-use candle_nn::{VarBuilder, VarMap};
+use candle_core;
+use candle_nn;
 use colored::*;
 use prettytable::{Cell, Row, Table};
 use std::path::Path;
@@ -13,15 +13,15 @@ use std::path::Path;
 mod model;
 mod utils;
 
-fn main() -> Result<()> {
+fn main() -> candle_core::Result<()> {
     // Initialize device
-    let dev = Device::cuda_if_available(0).expect("Failed to get any device");
+    let dev = candle_core::Device::cuda_if_available(0).expect("Failed to get any device");
 
-    // Initialize VarMap and load model
-    let mut var_map = VarMap::new();
-    let var_builder = VarBuilder::from_varmap(&var_map, DType::F32, &dev);
-    let model = ConvNet::new(var_builder).expect("Failed to create model");
-    var_map.load("model.safetensors")?;
+    // Initialize VarMap
+    let mut vm = candle_nn::VarMap::new();
+
+    // Load model from existing file
+    let model = ConvNet::new_from_file(&mut vm, "model.safetensors")?;
 
     // Load dataset
     println!("");

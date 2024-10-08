@@ -17,7 +17,13 @@ pub struct ConvNet {
 }
 
 impl ConvNet {
-    pub fn new(vb: VarBuilder) -> candle_core::Result<Self> {
+    pub fn new(vm: &mut VarMap) -> candle_core::Result<Self> {
+        // Get Device
+        let dev = candle_core::Device::cuda_if_available(0)?;
+
+        // Create vb
+        let vb = VarBuilder::from_varmap(&vm, DType::F32, &dev);
+
         let conv1 = candle_nn::conv2d(1, 64, 2, Default::default(), vb.pp("c1"))?;
         let conv2 = candle_nn::conv2d(64, 64, 2, Default::default(), vb.pp("c2"))?;
         let conv3 = candle_nn::conv2d(64, 64, 2, Default::default(), vb.pp("c3"))?;
@@ -32,6 +38,18 @@ impl ConvNet {
             fc2,
             dropout,
         })
+    }
+
+    pub fn new_from_file(vm: &mut VarMap, path: &str) -> candle_core::Result<Self> {
+        // Create a new ConvNet
+        let model = ConvNet::new(vm).expect("Failed to create model");
+
+        // Load weights and biases from file
+        vm.load(path)
+            .expect("Failed to load weights and biases from file");
+
+        // Return the model
+        return Ok(model);
     }
 
     fn forward(&self, xs: &Tensor, train: bool) -> candle_core::Result<Tensor> {
@@ -80,6 +98,11 @@ impl ConvNet {
 
         let train_labels = m.train_labels.to_dtype(DType::U32)?.to_device(&dev)?;
         let train_images = m.train_images.to_device(&dev)?;
+
+        if let Some(load) = &args.load {
+            println!("loading weights from {load}");
+            varmap.load(load)?
+        }
 
         let adamw_params = candle_nn::ParamsAdamW {
             lr: args.learning_rate,
@@ -185,7 +208,6 @@ impl ConvNet {
 pub struct TrainingArgs {
     pub epochs: usize,
     pub learning_rate: f64,
-    #[allow(dead_code)]
     pub load: Option<String>,
     pub save: Option<String>,
 }
